@@ -1,0 +1,9 @@
+[package]
+name = "merklet"
+version = "0.1.0"
+authors = ["Ryan Drew"]
+
+[dependencies]
+openssl = "0.9.*"
+hex = "0.2.0"
+
