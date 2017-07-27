@@ -97,51 +97,42 @@ use std::rc::{Weak, Rc};
 extern crate openssl;
 use self::openssl::hash::{DigestBytes, MessageDigest, hash2};
 
-#[test]
-fn it_works() {
-    assert!(false);
+// --Test Utilities--
+// Dummy data struct for leaf
+struct TestData {
+    data: String,
+}
+
+impl TestData {
+    fn new(sin: & str ) -> TestData {
+        let out = TestData {
+            data: sin.to_string(),
+        };
+        out
+    }
+}
+
+impl Hash2 for TestData {
+    fn hash2(&self) -> DigestBytes {
+        hash2(MessageDigest::sha256(), self.data.as_bytes()).unwrap()
+    }
+}
+
+//Function for building dummy leaf
+fn make_test_leaf_node(sdata_in: &str) -> MerkleNode<TestData> {
+    let data = TestData::new(sdata_in);
+    let leaf_node = MerkleNode{
+        hash: data.hash2(),
+        next: MerkleChild::Leaf(Rc::new(data)),
+    };
+    leaf_node
 }
 
 #[test]
 fn basics() {
-    struct TestA {
-        data: String,
-    }
 
-    impl TestA {
-        fn new(sin: & str ) -> TestA {
-            let out = TestA {
-                data: sin.to_string(),
-            };
-            out
-        }
-    }
-
-    impl Hash2 for TestA {
-        fn hash2(&self) -> DigestBytes {
-            hash2(MessageDigest::sha256(), self.data.as_bytes()).unwrap()
-        }
-    }
-
-    let ta = TestA::new("A");
-    let hasha = ta.hash2();
-    let a = Rc::new(ta);
-
-    let tb = TestA::new("B");
-    let hashb = tb.hash2();
-    let b = Rc::new(tb);
-
-    let mc_leafa = MerkleChild::Leaf(a);
-    let mc_leafb = MerkleChild::Leaf(b);
-
-    let mn_a = MerkleNode {
-        hash: hasha,
-        next: mc_leafa,
-    };
-    let mn_b = MerkleNode {
-        hash: hashb,
-        next: mc_leafb,
-    };
+    let mn_a = make_test_leaf_node("A");
+    let mn_b = make_test_leaf_node("B");
 
     let mb_branch = MerkleBranch {
         left: mn_a,
@@ -149,7 +140,7 @@ fn basics() {
     };
     let rc_branch = Rc::new(mb_branch);
     let mc_branch = MerkleChild::Branch(rc_branch);
-    let mut mc_root: MerkleNode<TestA>;
+    let mut mc_root: MerkleNode<TestData>;
     mc_root.hash = mc_branch.hash2();
     mc_root.next = mc_branch;
     
@@ -167,5 +158,12 @@ fn simple_tree() {
 fn two_simple_trees_cmp_roots() {
 }
 
+#[test]
+fn library_ready_for_any_use() {
+    println!("------------------  HALT  ------------------");
+    println!("        Proceed no further. Dangerous mutants ahead!");
+    println!("        --------------------------------------------");
+    assert!(false);
+}
 } //end mod test
 } //end mod merklet
