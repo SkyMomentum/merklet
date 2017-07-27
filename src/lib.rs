@@ -89,7 +89,13 @@ fn build_merkle_branches<T: Hash2>(nodes: &[MerkleNode<T>]) -> MerkleNode<T>{
 
 }*/
 
-
+fn make_merkle_leaf<T: Hash2>(leaf: T) -> MerkleNode<T> {
+    leaf_node = MerkleNode{
+        hash: leaf.hash2(),
+        next: MerkleChild::Leaf(Rc::new(leaf)),
+    }
+    leaf_node
+}
 
 mod tests {
 use super::*;
