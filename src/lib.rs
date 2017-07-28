@@ -1,17 +1,16 @@
 #[cfg(test)]
 mod merklet {
-    use std::rc::{Weak, Rc};
+    use std::rc::{Rc};
+    use std::borrow::Borrow;
 
     extern crate openssl;
     use self::openssl::hash::{DigestBytes, MessageDigest, hash2};
-
-    extern crate hex;
-    use self::hex::{FromHex, ToHex};
 
     pub trait Hash2{
         fn hash2(&self) -> DigestBytes;
     }
 
+    #[derive(Clone)]
     pub enum MerkleChild<T: Hash2>{
         Branch(Rc<MerkleBranch<T>>),
         Leaf(Rc<T>),
@@ -34,14 +33,13 @@ mod merklet {
                     hash2(MessageDigest::sha256(), concatenated_hash.as_slice()).unwrap()
                 }
                 MerkleChild::Leaf(ref leaf) => {
-                    //Placeholder
-                    //hash2(MessageDigest::sha256(), &Vec::from_hex("616263").unwrap()).unwrap()
                     leaf.hash2()
                 }
             }
         }
     }
 
+    #[derive(Clone)]
     pub struct MerkleBranch<T: Hash2> {
         left: MerkleNode<T>,
         right: MerkleNode<T>,
@@ -58,6 +56,7 @@ mod merklet {
         }
     }
 
+    #[derive(Clone)]
     pub struct MerkleNode<T: Hash2>{
         hash: DigestBytes,
         //parent: Weak<MerkleNode<T>>,
@@ -70,26 +69,33 @@ mod merklet {
         }
     }
 
-    /*
-    fn new_merkle_tree<T: Hash2>(leaves: &[T]) -> MerkleNode<T> {
-    // Take all leaves generate hash digest, for each pair generate has
-    // for the merklenode.
-
-    let leaf_iter = leaves.iter();
-
-    for leaf in leaf_iter {
-    // Make a new node, add the leaf to .next member as a MerkleChild::Leaf
-    // and the hash digest to .hash then add to hash for next step\
-    }
-    //call build_merkle_branches to form tree for the newly created nodes
+    fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) {//-> MerkleNode<T> {
+        let leaf_iter = leaves.iter();
+        let mut leaf_nodes: Vec<MerkleNode<T>> = Vec::new();
+        for leaf in leaf_iter {
+            leaf_nodes.push(make_leaf_node(leaf.clone()));
+        }
+        // Build tree and return root node.
+        build_merkle_branches(leaf_nodes.as_slice());
     }
 
-    fn build_merkle_branches<T: Hash2>(nodes: &[MerkleNode<T>]) -> MerkleNode<T>{
-    // For each pair of nodes make a new node for next level and hash the branch.
-    let pair_iter = leaves.chunks(2);
-    for pairs in pair_iter {
+    fn build_merkle_branches<T: Hash2 + Clone>(nodes: &[MerkleNode<T>]) -> MerkleNode<T>{
+        // For each pair of nodes make a new node for next level and hash the branch.
+        let pair_iter = nodes.chunks(2);
+        let mut branch_level: Vec<MerkleNode<T>> = Vec::new();
+        for pairs in pair_iter {
+            let left_node = pairs[0].clone();
+            let right_node = pairs[1].clone();
+            branch_level.push(make_branch_node(left_node, right_node));
+        }
+        let ret: MerkleNode<T>;
+        if branch_level.len() > 1 {
+            ret = build_merkle_branches(branch_level.as_slice());
+        } else {
+            ret = branch_level[0].clone();
+        }
+        ret
     }
-    }*/
 
     fn make_branch_node<T: Hash2>(left_node: MerkleNode<T>,
                                  right_node: MerkleNode<T>) -> MerkleNode<T> {
@@ -114,12 +120,17 @@ mod merklet {
 
     mod tests {
         use super::*;
-        use std::rc::{Weak, Rc};
+        use std::rc::{Rc};
+        use std::borrow::Borrow;
+        use std::ops::Deref;
         extern crate openssl;
         use self::openssl::hash::{DigestBytes, MessageDigest, hash2};
+        //extern crate hex;
+        //use self::hex::{FromHex, ToHex};
 
         // --Test Utilities--
         // Dummy data struct for leaf
+        #[derive(Clone)]
         struct TestData {
             data: String,
         }
@@ -157,7 +168,7 @@ mod merklet {
         }
 
         #[test]
-        fn making_branch() {
+        fn making_a_branch() {
             let leafa = make_test_leaf_node("A");
             let leafb = make_test_leaf_node("B");
 
@@ -173,30 +184,43 @@ mod merklet {
         }
 
         #[test]
-        fn basics() {
+        fn test_build_merkle_branches() {
+            let branch_ab = make_branch_node(make_test_leaf_node("A"), make_test_leaf_node("B"));
+            let branch_ba = make_branch_node(make_test_leaf_node("B"), make_test_leaf_node("A"));
+            let test_slice = [ branch_ab, branch_ba ];
+            let test_branch = build_merkle_branches(&test_slice);
 
-            let mn_a = make_test_leaf_node("A");
-            let mn_b = make_test_leaf_node("B");
-
-            let mb_branch = MerkleBranch {
-                left: mn_a,
-                right: mn_b,
-            };
-            let rc_branch = Rc::new(mb_branch);
-            let mc_branch = MerkleChild::Branch(rc_branch);
-            let mut mc_root: MerkleNode<TestData>;
-            mc_root.hash = mc_branch.hash2();
-            mc_root.next = mc_branch;
-
+            // Traverse the tree, fail if we get the wrong child type. Match the left most leaf
+            // node it should have data "A"
+            match test_branch.next {
+                MerkleChild::Branch(ref branch) => {
+                    match branch.deref().borrow().deref().left.next {
+                        MerkleChild::Branch(ref b2) => {
+                            match b2.deref().borrow().deref().left.next{
+                                MerkleChild::Branch(_) => {
+                                    assert!(false);
+                                }
+                                MerkleChild::Leaf(ref l3) => {
+                                    assert_eq!(l3.deref().borrow().data, "A");
+                                }
+                            }
+                        }
+                        MerkleChild::Leaf(_) => {
+                            assert!(false);
+                        }
+                    }
+                }
+                MerkleChild::Leaf(_) => {
+                    assert!(false);
+                }
+            }
         }
 
         #[test]
-        fn left_right_not_equal() {
-        }
-
-        #[test]
-
-        fn simple_tree() {
+        fn lr_rl_not_equal() {
+            let branch_ab = make_branch_node(make_test_leaf_node("A"), make_test_leaf_node("B"));
+            let branch_ba = make_branch_node(make_test_leaf_node("B"), make_test_leaf_node("A"));
+            assert_ne!(*branch_ab.hash, *branch_ba.hash);
         }
 
         #[test]
@@ -206,8 +230,8 @@ mod merklet {
         #[test]
         fn library_ready_for_any_use() {
             println!("------------------  HALT  ------------------");
-            println!("    Proceed no further. Dangerous mutants ahead!");
-            println!("    --------------------------------------------");
+            println!("        Proceed no further. Dangerous mutants ahead!");
+            println!("        --------------------------------------------");
             assert!(false);
         }
     } //end mod test
