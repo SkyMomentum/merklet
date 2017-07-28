@@ -19,28 +19,6 @@ pub enum MerkleChild<T: Hash2>{
     Leaf(Rc<T>),
 }
 
-pub struct MerkleBranch<T: Hash2> {
-    left: MerkleNode<T>,
-    right: MerkleNode<T>,
-}
-
-impl<T: Hash2> Hash2 for MerkleBranch<T> {
-    fn hash2(&self) -> DigestBytes {
-        let mut concatenated_hash: Vec<u8> = Vec::new();
-        let mut left_digest: Vec<u8> = self.left.hash.to_vec();
-        let mut right_digest: Vec<u8> = self.right.hash.to_vec();
-        concatenated_hash.append(&mut left_digest);
-        concatenated_hash.append(&mut right_digest);
-        hash2(MessageDigest::sha256(), concatenated_hash.as_slice()).unwrap()
-    }
-}
-
-pub struct MerkleNode<T: Hash2>{
-    hash: DigestBytes,
-    //parent: Weak<MerkleNode<T>>,
-    next: MerkleChild<T>,
-}
-
 impl<T: Hash2> Hash2 for MerkleChild<T> {
     fn hash2(&self) -> DigestBytes {
         // Match merkle child left and right. If they are nodes concat the 
@@ -63,6 +41,34 @@ impl<T: Hash2> Hash2 for MerkleChild<T> {
                 leaf.hash2()
             }
         }
+    }
+}
+
+pub struct MerkleBranch<T: Hash2> {
+    left: MerkleNode<T>,
+    right: MerkleNode<T>,
+}
+
+impl<T: Hash2> Hash2 for MerkleBranch<T> {
+    fn hash2(&self) -> DigestBytes {
+        let mut concatenated_hash: Vec<u8> = Vec::new();
+        let mut left_digest: Vec<u8> = self.left.hash.to_vec();
+        let mut right_digest: Vec<u8> = self.right.hash.to_vec();
+        concatenated_hash.append(&mut left_digest);
+        concatenated_hash.append(&mut right_digest);
+        hash2(MessageDigest::sha256(), concatenated_hash.as_slice()).unwrap()
+    }
+}
+
+pub struct MerkleNode<T: Hash2>{
+    hash: DigestBytes,
+    //parent: Weak<MerkleNode<T>>,
+    next: MerkleChild<T>,
+}
+
+impl<T: Hash2> Hash2 for MerkleNode<T> {
+    fn hash2(&self) -> DigestBytes {
+        self.next.hash2()
     }
 }
 
@@ -90,10 +96,10 @@ fn build_merkle_branches<T: Hash2>(nodes: &[MerkleNode<T>]) -> MerkleNode<T>{
 }*/
 
 fn make_merkle_leaf<T: Hash2>(leaf: T) -> MerkleNode<T> {
-    leaf_node = MerkleNode{
+    let leaf_node = MerkleNode{
         hash: leaf.hash2(),
         next: MerkleChild::Leaf(Rc::new(leaf)),
-    }
+    };
     leaf_node
 }
 
@@ -132,6 +138,13 @@ fn make_test_leaf_node(sdata_in: &str) -> MerkleNode<TestData> {
         next: MerkleChild::Leaf(Rc::new(data)),
     };
     leaf_node
+}
+
+#[test]
+fn making_leaf() {
+    let t_data = TestData::new("A");
+    let t_leaf =  make_merkle_leaf(t_data);    
+    assert_eq!(*hash2(MessageDigest::sha256(), "A".as_bytes()).unwrap(), *t_leaf.hash2());
 }
 
 #[test]
