@@ -92,11 +92,23 @@ fn build_merkle_branches<T: Hash2>(nodes: &[MerkleNode<T>]) -> MerkleNode<T>{
     let pair_iter = leaves.chunks(2);
     for pairs in pair_iter {
     }
-
 }*/
 
-fn make_merkle_leaf<T: Hash2>(leaf: T) -> MerkleNode<T> {
-    let leaf_node = MerkleNode{
+fn make_branch_node<T: Hash2>(left_node: MerkleNode<T>,
+                                right_node: MerkleNode<T>) -> MerkleNode<T> {
+    let branch = MerkleBranch {
+        left: left_node,
+        right: right_node,
+    };
+    let ret_node = MerkleNode {
+        hash: branch.hash2(),
+        next: MerkleChild::Branch(Rc::new(branch)),
+    };
+    ret_node
+}
+
+fn make_leaf_node<T: Hash2>(leaf: T) -> MerkleNode<T> {
+    let leaf_node = MerkleNode {
         hash: leaf.hash2(),
         next: MerkleChild::Leaf(Rc::new(leaf)),
     };
@@ -143,8 +155,24 @@ fn make_test_leaf_node(sdata_in: &str) -> MerkleNode<TestData> {
 #[test]
 fn making_leaf() {
     let t_data = TestData::new("A");
-    let t_leaf =  make_merkle_leaf(t_data);    
+    let t_leaf =  make_leaf_node(t_data);
     assert_eq!(*hash2(MessageDigest::sha256(), "A".as_bytes()).unwrap(), *t_leaf.hash2());
+}
+
+#[test]
+fn making_branch() {
+    let leafa = make_test_leaf_node("A");
+    let leafb = make_test_leaf_node("B");
+
+    let mut tmp: Vec<u8> = Vec::new();
+    let mut la_digest: Vec<u8> = leafa.hash.to_vec();
+    let mut lb_digest: Vec<u8> = leafb.hash.to_vec();
+    tmp.append(&mut la_digest);
+    tmp.append(&mut lb_digest);
+    let expected = hash2(MessageDigest::sha256(), tmp.as_slice()).unwrap();
+
+    let br = make_branch_node(leafa, leafb);
+    assert_eq!(*expected, *br.hash2());
 }
 
 #[test]
