@@ -1,17 +1,17 @@
 #[cfg(test)]
 mod merklet {
-    use std::rc::{Rc};
+    use std::rc::Rc;
     use std::borrow::Borrow;
 
     extern crate openssl;
     use self::openssl::hash::{DigestBytes, MessageDigest, hash2};
 
-    pub trait Hash2{
+    pub trait Hash2 {
         fn hash2(&self) -> DigestBytes;
     }
 
     #[derive(Clone)]
-    pub enum MerkleChild<T: Hash2>{
+    pub enum MerkleChild<T: Hash2> {
         Branch(MerkleBranch<T>),
         Leaf(Rc<T>),
     }
@@ -26,15 +26,11 @@ mod merklet {
                     let mut concatenated_hash: Vec<u8> = Vec::new();
                     let mut left_digest: Vec<u8> = branch.left.hash.to_vec();
                     let mut right_digest: Vec<u8> = branch.right.hash.to_vec();
-
                     concatenated_hash.append(&mut left_digest);
                     concatenated_hash.append(&mut right_digest);
-
                     hash2(MessageDigest::sha256(), concatenated_hash.as_slice()).unwrap()
                 }
-                MerkleChild::Leaf(ref leaf) => {
-                    leaf.hash2()
-                }
+                MerkleChild::Leaf(ref leaf) => leaf.hash2(),
             }
         }
     }
@@ -57,9 +53,8 @@ mod merklet {
     }
 
     #[derive(Clone)]
-    pub struct MerkleNode<T: Hash2>{
+    pub struct MerkleNode<T: Hash2> {
         hash: DigestBytes,
-        //parent: Weak<MerkleNode<T>>,
         next: MerkleChild<T>,
     }
 
@@ -69,7 +64,8 @@ mod merklet {
         }
     }
 
-    fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) {//-> MerkleNode<T> {
+    fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) {
+        //-> MerkleNode<T> {
         let leaf_iter = leaves.iter();
         let mut leaf_nodes: Vec<Rc<MerkleNode<T>>> = Vec::new();
         for leaf in leaf_iter {
@@ -80,7 +76,9 @@ mod merklet {
         build_merkle_branches(&leaf_nodes);
     }
 
-    fn build_merkle_branches<T: Hash2 + Clone>(nodes: &Vec<Rc<MerkleNode<T>>>) -> Rc<MerkleNode<T>>{
+    fn build_merkle_branches<T: Hash2 + Clone>(
+        nodes: &Vec<Rc<MerkleNode<T>>>,
+    ) -> Rc<MerkleNode<T>> {
         // For each pair of nodes make a new node for next level and hash the branch.
         let pair_iter = nodes.chunks(2);
         let mut branch_level: Vec<Rc<MerkleNode<T>>> = Vec::new();
@@ -105,8 +103,10 @@ mod merklet {
         ret
     }
 
-    fn make_branch_node<T: Hash2>(left_node: Rc<MerkleNode<T>>,
-                                 right_node: Rc<MerkleNode<T>>) -> Rc<MerkleNode<T>> {
+    fn make_branch_node<T: Hash2>(
+        left_node: Rc<MerkleNode<T>>,
+        right_node: Rc<MerkleNode<T>>,
+    ) -> Rc<MerkleNode<T>> {
         let branch = MerkleBranch {
             left: left_node,
             right: right_node,
@@ -128,7 +128,7 @@ mod merklet {
 
     mod tests {
         use super::*;
-        use std::rc::{Rc};
+        use std::rc::Rc;
         use std::borrow::Borrow;
         use std::ops::Deref;
         extern crate openssl;
@@ -144,7 +144,7 @@ mod merklet {
         }
 
         impl TestData {
-            fn new(sin: & str ) -> TestData {
+            fn new(sin: &str) -> TestData {
                 let out = TestData {
                     data: sin.to_string(),
                 };
@@ -161,7 +161,7 @@ mod merklet {
         //Function for building dummy leaf
         fn make_test_leaf_node(sdata_in: &str) -> Rc<MerkleNode<TestData>> {
             let data = TestData::new(sdata_in);
-            let leaf_node = MerkleNode{
+            let leaf_node = MerkleNode {
                 hash: data.hash2(),
                 next: MerkleChild::Leaf(Rc::new(data)),
             };
@@ -171,8 +171,11 @@ mod merklet {
         #[test]
         fn making_leaf() {
             let t_data = TestData::new("A");
-            let t_leaf =  make_leaf_node(t_data);
-            assert_eq!(*hash2(MessageDigest::sha256(), "A".as_bytes()).unwrap(), *t_leaf.hash2());
+            let t_leaf = make_leaf_node(t_data);
+            assert_eq!(
+                *hash2(MessageDigest::sha256(), "A".as_bytes()).unwrap(),
+                *t_leaf.hash2()
+            );
         }
 
         #[test]
@@ -204,7 +207,7 @@ mod merklet {
                 MerkleChild::Branch(ref branch) => {
                     match branch.deref().borrow().deref().left.next {
                         MerkleChild::Branch(ref b2) => {
-                            match b2.deref().borrow().deref().left.next{
+                            match b2.deref().borrow().deref().left.next {
                                 MerkleChild::Branch(_) => {
                                     assert!(false);
                                 }
@@ -232,8 +235,7 @@ mod merklet {
         }
 
         #[test]
-        fn two_simple_trees_cmp_roots() {
-        }
+        fn two_simple_trees_cmp_roots() {}
 
         #[test]
         fn library_ready_for_any_use() {
