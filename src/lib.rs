@@ -12,7 +12,7 @@ mod merklet {
 
     #[derive(Clone)]
     pub enum MerkleChild<T: Hash2>{
-        Branch(Rc<MerkleBranch<T>>),
+        Branch(MerkleBranch<T>),
         Leaf(Rc<T>),
     }
 
@@ -41,8 +41,8 @@ mod merklet {
 
     #[derive(Clone)]
     pub struct MerkleBranch<T: Hash2> {
-        left: MerkleNode<T>,
-        right: MerkleNode<T>,
+        left: Rc<MerkleNode<T>>,
+        right: Rc<MerkleNode<T>>,
     }
 
     impl<T: Hash2> Hash2 for MerkleBranch<T> {
@@ -71,43 +71,51 @@ mod merklet {
 
     fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) {//-> MerkleNode<T> {
         let leaf_iter = leaves.iter();
-        let mut leaf_nodes: Vec<MerkleNode<T>> = Vec::new();
+        let mut leaf_nodes: Vec<Rc<MerkleNode<T>>> = Vec::new();
         for leaf in leaf_iter {
-            leaf_nodes.push(make_leaf_node(leaf.clone()));
+            let rcleaf = Rc::new(make_leaf_node(leaf.clone()));
+            leaf_nodes.push(rcleaf);
         }
         // Build tree and return root node.
-        build_merkle_branches(leaf_nodes.as_slice());
+        build_merkle_branches(&leaf_nodes);
     }
 
-    fn build_merkle_branches<T: Hash2 + Clone>(nodes: &[MerkleNode<T>]) -> MerkleNode<T>{
+    fn build_merkle_branches<T: Hash2 + Clone>(nodes: &Vec<Rc<MerkleNode<T>>>) -> Rc<MerkleNode<T>>{
         // For each pair of nodes make a new node for next level and hash the branch.
         let pair_iter = nodes.chunks(2);
-        let mut branch_level: Vec<MerkleNode<T>> = Vec::new();
+        let mut branch_level: Vec<Rc<MerkleNode<T>>> = Vec::new();
         for pairs in pair_iter {
-            let left_node = pairs[0].clone();
-            let right_node = pairs[1].clone();
-            branch_level.push(make_branch_node(left_node, right_node));
+            //let z: Rc<MerkleNode<T>> = pairs.first().unwrap().clone();
+            //let q: u8 = z;
+            if pairs.len() == 2 {
+                let left_node: Rc<MerkleNode<T>> = pairs.first().unwrap().clone();
+                //TODO: Handle the Option<> below.
+                let right_node: Rc<MerkleNode<T>> = pairs.last().unwrap().clone();
+                branch_level.push(make_branch_node(left_node, right_node));
+            } else {
+
+            }
         }
-        let ret: MerkleNode<T>;
+        let ret: Rc<MerkleNode<T>>;
         if branch_level.len() > 1 {
-            ret = build_merkle_branches(branch_level.as_slice());
+            ret = build_merkle_branches(&branch_level);
         } else {
             ret = branch_level[0].clone();
         }
         ret
     }
 
-    fn make_branch_node<T: Hash2>(left_node: MerkleNode<T>,
-                                 right_node: MerkleNode<T>) -> MerkleNode<T> {
+    fn make_branch_node<T: Hash2>(left_node: Rc<MerkleNode<T>>,
+                                 right_node: Rc<MerkleNode<T>>) -> Rc<MerkleNode<T>> {
         let branch = MerkleBranch {
             left: left_node,
             right: right_node,
         };
         let ret_node = MerkleNode {
             hash: branch.hash2(),
-            next: MerkleChild::Branch(Rc::new(branch)),
+            next: MerkleChild::Branch(branch),
         };
-        ret_node
+        Rc::new(ret_node)
     }
 
     fn make_leaf_node<T: Hash2>(leaf: T) -> MerkleNode<T> {
@@ -151,13 +159,13 @@ mod merklet {
         }
 
         //Function for building dummy leaf
-        fn make_test_leaf_node(sdata_in: &str) -> MerkleNode<TestData> {
+        fn make_test_leaf_node(sdata_in: &str) -> Rc<MerkleNode<TestData>> {
             let data = TestData::new(sdata_in);
             let leaf_node = MerkleNode{
                 hash: data.hash2(),
                 next: MerkleChild::Leaf(Rc::new(data)),
             };
-            leaf_node
+            Rc::new(leaf_node)
         }
 
         #[test]
@@ -187,8 +195,8 @@ mod merklet {
         fn test_build_merkle_branches() {
             let branch_ab = make_branch_node(make_test_leaf_node("A"), make_test_leaf_node("B"));
             let branch_ba = make_branch_node(make_test_leaf_node("B"), make_test_leaf_node("A"));
-            let test_slice = [ branch_ab, branch_ba ];
-            let test_branch = build_merkle_branches(&test_slice);
+            let test_vec = vec![branch_ab, branch_ba];
+            let test_branch = build_merkle_branches(&test_vec);
 
             // Traverse the tree, fail if we get the wrong child type. Match the left most leaf
             // node it should have data "A"
