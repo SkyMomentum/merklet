@@ -1,26 +1,32 @@
-#[cfg(test)]
-mod merklet {
+
+pub mod merklet {
+    ///! A Toy Merkle Node Type.
+    ///!
+    ///! Create Merkle trees from arbitrary types which impliment Hash2(Temporary).
     use std::rc::Rc;
     use std::borrow::Borrow;
 
     extern crate openssl;
     use self::openssl::hash::{DigestBytes, MessageDigest, hash2};
 
+    /// Temporary trait to hash with sha256 from Openssl.
     pub trait Hash2 {
         fn hash2(&self) -> DigestBytes;
     }
 
+    /// This is the `next` field in a MerkleNode. Either a branch with two children or a Rc
+    /// reference to the leaf type T
     #[derive(Clone)]
     pub enum MerkleChild<T: Hash2> {
         Branch(MerkleBranch<T>),
         Leaf(Rc<T>),
     }
 
+    /// Match merkle child left and right. If they are nodes concat the
+    /// existing hashes digests and hash that.If they are leaves hashes the
+    /// data of the leaf.
     impl<T: Hash2> Hash2 for MerkleChild<T> {
         fn hash2(&self) -> DigestBytes {
-            // Match merkle child left and right. If they are nodes concat the
-            // existing hash digests and hash that.If they are leaves hash the
-            // data of the leaf.
             match *self {
                 MerkleChild::Branch(ref branch) => {
                     let mut concatenated_hash: Vec<u8> = Vec::new();
@@ -35,6 +41,7 @@ mod merklet {
         }
     }
 
+    /// Simple binary tree banch for this merkle tree.
     #[derive(Clone)]
     pub struct MerkleBranch<T: Hash2> {
         left: Rc<MerkleNode<T>>,
@@ -52,6 +59,8 @@ mod merklet {
         }
     }
 
+    /// A node in a Merkle tree. The field 'next' holds a MerkleChild which represents
+    /// either a branch or a leaf.
     #[derive(Clone)]
     pub struct MerkleNode<T: Hash2> {
         hash: DigestBytes,
@@ -64,7 +73,11 @@ mod merklet {
         }
     }
 
-    fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) {
+    /// Function to build a fresh Merkle tree.
+    // TODO: Currently NOT COMPLETE, will return the root node.
+    /// # Arguments
+    /// *`leaves` - A slice of whatever will become the leaves.
+    pub fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) {
         //-> MerkleNode<T> {
         let leaf_iter = leaves.iter();
         let mut leaf_nodes: Vec<Rc<MerkleNode<T>>> = Vec::new();
@@ -76,6 +89,10 @@ mod merklet {
         build_merkle_branches(&leaf_nodes);
     }
 
+    /// Utility function to recursively build branches after the first round of node
+    /// building for the leaves.
+    /// # Arguments
+    /// `nodes` - A vector of Rc<> to MerkleNodes.
     fn build_merkle_branches<T: Hash2 + Clone>(
         nodes: &Vec<Rc<MerkleNode<T>>>,
     ) -> Rc<MerkleNode<T>> {
@@ -103,6 +120,10 @@ mod merklet {
         ret
     }
 
+    /// Utility function that returns a branch node.
+    /// # Arguments
+    /// `left_node` - Rc<> of a MerkleNode.
+    /// `right_node` - Rc<> of a MerkleNode.
     fn make_branch_node<T: Hash2>(
         left_node: Rc<MerkleNode<T>>,
         right_node: Rc<MerkleNode<T>>,
@@ -118,6 +139,9 @@ mod merklet {
         Rc::new(ret_node)
     }
 
+    /// Utility function that returns a leaf node.
+    /// # Arguments
+    /// `leaf` - The item that is to be the leaf of the tree.
     fn make_leaf_node<T: Hash2>(leaf: T) -> MerkleNode<T> {
         let leaf_node = MerkleNode {
             hash: leaf.hash2(),
@@ -126,6 +150,7 @@ mod merklet {
         leaf_node
     }
 
+    #[cfg(test)]
     mod tests {
         use super::*;
         use std::rc::Rc;
