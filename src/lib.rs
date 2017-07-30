@@ -1,6 +1,6 @@
 
 pub mod merklet {
-    ///! A Toy Merkle Node Type.
+    ///! A Toy Merkle Tree Type.
     ///!
     ///! Create Merkle trees from arbitrary types which impliment Hash2(Temporary).
     use std::rc::Rc;
@@ -71,12 +71,27 @@ pub mod merklet {
         }
     }
 
+    impl<T: Hash2> MerkleNode<T> {
+        fn is_leaf(&self) -> bool {
+            match self.next {
+                MerkleChild::Leaf(_) => true,
+                MerkleChild::Branch(_) => false,
+            }
+        }
+
+        fn is_branch(&self) -> bool {
+            match self.next {
+                MerkleChild::Leaf(_) => false,
+                MerkleChild::Branch(_) => true,
+            }
+        }
+    }
+
     /// Function to build a fresh Merkle tree.
     // TODO: Currently NOT COMPLETE, will return the root node.
     /// # Arguments
     /// *`leaves` - A slice of whatever will become the leaves.
-    pub fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) {
-        //-> MerkleNode<T> {
+    pub fn new_merkle_tree<T: Hash2 + Clone>(leaves: &[T]) -> Rc<MerkleNode<T>> {
         let leaf_iter = leaves.iter();
         let mut leaf_nodes: Vec<Rc<MerkleNode<T>>> = Vec::new();
         for leaf in leaf_iter {
@@ -84,7 +99,7 @@ pub mod merklet {
             leaf_nodes.push(rcleaf);
         }
         // Build tree and return root node.
-        build_merkle_branches(&leaf_nodes);
+        build_merkle_branches(&leaf_nodes)
     }
 
     /// Utility function to recursively build branches after the first round of node
@@ -116,6 +131,7 @@ pub mod merklet {
         if branch_level.len() > 1 {
             ret = build_merkle_branches(&branch_level);
         } else {
+            //TODO: Clone unneeded? Return the Rc<MerkleNode>.
             ret = branch_level[0].clone();
         }
         ret
@@ -202,6 +218,7 @@ pub mod merklet {
                 *hash2(MessageDigest::sha256(), "A".as_bytes()).unwrap(),
                 *t_leaf.hash2()
             );
+            assert!(t_leaf.is_leaf());
         }
 
         #[test]
@@ -218,6 +235,7 @@ pub mod merklet {
 
             let br = make_branch_node(leafa, leafb);
             assert_eq!(*expected, *br.hash2());
+            assert!(br.is_branch());
         }
 
         #[test]
