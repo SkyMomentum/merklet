@@ -4,8 +4,6 @@ pub mod merklet {
     ///!
     ///! Create Merkle trees from arbitrary types which impliment Hash2(Temporary).
     use std::rc::Rc;
-    use std::borrow::Borrow;
-
     extern crate openssl;
     use self::openssl::hash::{DigestBytes, MessageDigest, hash2};
 
@@ -100,15 +98,18 @@ pub mod merklet {
         let pair_iter = nodes.chunks(2);
         let mut branch_level: Vec<Rc<MerkleNode<T>>> = Vec::new();
         for pairs in pair_iter {
-            //let z: Rc<MerkleNode<T>> = pairs.first().unwrap().clone();
-            //let q: u8 = z;
             if pairs.len() == 2 {
                 let left_node: Rc<MerkleNode<T>> = pairs.first().unwrap().clone();
                 //TODO: Handle the Option<> below.
-                let right_node: Rc<MerkleNode<T>> = pairs.last().unwrap().clone();
+                let right_node: Rc<MerkleNode<T>> = pairs
+                    .last()
+                    .expect("ERROR: There should be two nodes, but there are not.")
+                    .clone();
                 branch_level.push(make_branch_node(left_node, right_node));
             } else {
-
+                let only_left: Rc<MerkleNode<T>> = pairs.first().unwrap().clone();
+                let only_right: Rc<MerkleNode<T>> = pairs.first().unwrap().clone();
+                branch_level.push(make_branch_node(only_left, only_right));
             }
         }
         let ret: Rc<MerkleNode<T>>;
