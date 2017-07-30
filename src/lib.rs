@@ -85,6 +85,28 @@ pub mod merklet {
                 MerkleChild::Branch(_) => true,
             }
         }
+
+
+        fn get_left_child(&self) -> Option<Rc<MerkleNode<T>>> {
+            match self.next {
+                MerkleChild::Branch(ref branch) => Some(branch.left.clone()),
+                MerkleChild::Leaf(_) => None,
+            }
+        }
+
+        fn get_right_child(&self) -> Option<Rc<MerkleNode<T>>> {
+            match self.next {
+                MerkleChild::Branch(ref branch) => Some(branch.right.clone()),
+                MerkleChild::Leaf(_) => None,
+            }
+        }
+
+        fn get_leaf_data(&self) -> Option<Rc<T>> {
+            match self.next {
+                MerkleChild::Branch(_) => None,
+                MerkleChild::Leaf(ref leaf) => Some(leaf.clone()),
+            }
+        }
     }
 
     /// Function to build a fresh Merkle tree.
