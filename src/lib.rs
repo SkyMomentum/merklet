@@ -304,6 +304,36 @@ pub mod merklet {
         fn two_simple_trees_cmp_roots() {}
 
         #[test]
+        fn merklenode_child_util_funcs() {
+            //Test is_leaf()
+            let test_a = make_test_leaf_node("A");
+            assert!(test_a.is_leaf());
+            //Test is_branch()
+            let test_branch = make_branch_node(make_test_leaf_node("C"), make_test_leaf_node("D"));
+            assert!(test_branch.is_branch());
+            //Test get_left_child()
+            match test_branch.get_left_child().unwrap().next {
+                MerkleChild::Leaf(ref l) => {
+                    assert_eq!(l.data, "C");
+                }
+                MerkleChild::Branch(_) => {
+                    assert!(false);
+                }
+            }
+            //Test get_right_child()
+            match test_branch.get_right_child().unwrap().next {
+                MerkleChild::Leaf(ref l) => {
+                    assert_eq!(l.data, "D");
+                }
+                MerkleChild::Branch(_) => {
+                    assert!(false);
+                }
+            }
+            //Test get_leaf_data()
+            assert_eq!(test_a.get_leaf_data().unwrap().data, "A");
+        }
+
+        #[test]
         fn library_ready_for_any_use() {
             println!("------------------  HALT  ------------------");
             println!("        Proceed no further. Dangerous mutants ahead!");
